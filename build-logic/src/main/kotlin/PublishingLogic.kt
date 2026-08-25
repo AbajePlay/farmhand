@@ -80,6 +80,8 @@ fun Project.configureModPublishing(ctx: Context) {
 		version = ctx.fullVersion
 		changelog.set(rootProject.file("CHANGELOG.md").readText())
 		modLoaders.add(ctx.loader.id)
+		// Quilt Loader runs Fabric mods as-is, and Farmhand needs nothing beyond the loader itself.
+		if (ctx.loader.id == "fabric") modLoaders.add("quilt")
 
 		displayName =
 			"${ctx.modName} ${ctx.basicVersion} ${ctx.loader.id.replaceFirstChar(Char::titlecase)} ${ctx.currentMcVersion}"
@@ -87,7 +89,9 @@ fun Project.configureModPublishing(ctx: Context) {
 		val deps = ctx.extension.dependencies
 
 		modrinth(ctx, ctx.publishAdditionalVersions, mrStaging, modrinthAccessToken, deps)
-		if (!mrStaging) curseforge(ctx, ctx.publishAdditionalVersions, curseforgeAccessToken, deps)
+		// CurseForge is opt-in: without a project id its task fails validation before any upload.
+		if (!mrStaging && !env("PUB_CURSEFORGE_PROJECT_ID").isNullOrBlank())
+			curseforge(ctx, ctx.publishAdditionalVersions, curseforgeAccessToken, deps)
 	}
 }
 
