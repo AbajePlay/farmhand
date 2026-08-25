@@ -1,0 +1,54 @@
+# git-cliff configuration.
+#
+# The release workflow substitutes %%%repo_url%%% with the repository URL before
+# running git-cliff, and feeds the result to both the GitHub release notes and
+# the Modrinth/CurseForge changelog field, so the body has to read well as plain
+# Markdown on its own. The workflow also passes --strip header, which drops the
+# header below; it is kept for local runs.
+
+[changelog]
+header = "# Changelog\n\n"
+body = """
+{% if version -%}
+## {{ version }} - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else -%}
+## Unreleased
+{% endif %}
+{%- for group, commits in commits | group_by(attribute="group") %}
+### {{ group | striptags | trim }}
+{% for commit in commits %}
+- {{ commit.message | split(pat="\n") | first | trim | upper_first }} \
+([{{ commit.id | truncate(length=7, end="") }}](%%%repo_url%%%/commit/{{ commit.id }}))
+{%- endfor %}
+{% endfor %}
+{%- if previous.version and version %}
+**Full changelog**: %%%repo_url%%%/compare/{{ previous.version }}...{{ version }}
+{% endif -%}
+"""
+footer = ""
+trim = true
+
+[git]
+# Commit subjects in this repository are prose, not Conventional Commits.
+# Conventional parsing stays on for future commits that use it, but
+# filter_unconventional keeps the prose ones in the output instead of dropping
+# them, and the last parser catches anything the others miss.
+conventional_commits = true
+filter_unconventional = false
+filter_commits = false
+protect_breaking_commits = true
+split_commits = false
+topo_order = false
+sort_commits = "newest"
+
+# Release tags are bare versions such as 1.0.0, validated against mod.version.
+tag_pattern = "[0-9].*"
+
+commit_parsers = [
+	{ message = '^(?i)merge ', skip = true },
+	{ message = '^(?i)(feat|add|introduce|implement)', group = '<!-- 0 -->Added' },
+	{ message = '^(?i)(fix|drop|remove|correct)', group = '<!-- 3 -->Fixed' },
+	{ message = '^(?i)deprecate', group = '<!-- 2 -->Deprecated' },
+	{ message = '^(?i)(docs?|chore|ci|build|test|style)[^:]*:', skip = true },
+	{ message = '.*', group = '<!-- 1 -->Changed' },
+]
